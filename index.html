@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POK/AS Buff Optimizer & Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        /* Custom Scrollbar Styles */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* Mobile Device Simulation Frame */
+        .mode-mobile-view {
+            max-width: 430px !important;
+            margin: 0 auto !important;
+            border: 8px solid #334155;
+            border-radius: 24px;
+            padding: 12px !important;
+            background-color: #f8fafc;
+            height: 840px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen">
+
+    <div id="app-container" class="max-w-7xl mx-auto p-4 md:p-6 transition-all duration-300">
+        <!-- Header Section -->
+        <header class="mb-6 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 id="ui-title" class="text-xl font-bold text-slate-900">POK, AS, and Buff Schedule Map</h1>
+                    <p id="ui-subtitle" class="text-xs text-slate-500 mt-1">Web Simulator (LocalStorage / URL Parameter Sharing / UTC Standard)</p>
+                </div>
+                
+                <div class="flex flex-wrap items-center gap-3 self-start md:self-auto">
+                    <!-- Language Selection Toggle (EN / JA) -->
+                    <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-medium border border-slate-200">
+                        <span class="px-1.5 text-slate-500 text-[11px]">Lang:</span>
+                        <button id="btn-lang-en" onclick="setLanguage('en')" class="px-2 py-1 rounded-md transition font-semibold">EN</button>
+                        <button id="btn-lang-ja" onclick="setLanguage('ja')" class="px-2 py-1 rounded-md transition font-semibold">JA</button>
+                    </div>
+
+                    <!-- View Mode Selection Buttons -->
+                    <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-medium border border-slate-200">
+                        <span id="ui-view-label" class="px-1.5 text-slate-500 text-[11px]">View Mode:</span>
+                        <button id="btn-mode-auto" onclick="setViewMode('auto')" class="px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-sm transition">Auto</button>
+                        <button id="btn-mode-pc" onclick="setViewMode('pc')" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition">PC</button>
+                        <button id="btn-mode-mobile" onclick="setViewMode('mobile')" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition">Mobile</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation Tabs (Simplified: Master tab is removed) -->
+            <div class="flex border-b border-slate-200 mt-4 text-sm font-medium">
+                <button id="tab-sim" onclick="switchTab('sim')" class="border-b-2 border-blue-600 py-2 px-4 text-blue-600 font-semibold transition"> 🕐 Timeline Map</button>
+                <button id="tab-tips" onclick="switchTab('tips')" class="border-b-2 border-transparent py-2 px-4 text-slate-500 hover:text-slate-700 transition">💡 Tips & Guide</button>
+                <button id="tab-share" onclick="switchTab('share')" class="border-b-2 border-transparent py-2 px-4 text-slate-500 hover:text-slate-700 transition">📋 Share & Export</button>
+            </div>
+        </header>
+
+        <!-- Custom Notification Toast -->
+        <div id="toast" class="hidden fixed top-4 right-4 bg-slate-900 text-white text-xs px-4 py-3 rounded-lg shadow-xl z-50 transition-opacity duration-300 items-center gap-2">
+            <span id="toast-msg"></span>
+        </div>
+
+        <!-- Custom Confirmation Modal -->
+        <div id="confirm-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-xl shadow-xl border border-slate-200 p-6 max-w-sm w-full space-y-4">
+                <h3 id="modal-title" class="text-sm font-bold text-slate-900"></h3>
+                <p id="modal-desc" class="text-xs text-slate-500 leading-relaxed"></p>
+                <div class="flex gap-2 justify-end text-xs">
+                    <button id="modal-cancel" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium px-4 py-2 rounded-lg transition">Cancel</button>
+                    <button id="modal-confirm" class="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg transition">Confirm</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== Tab 1: Simulator Map ==================== -->
+        <main id="content-sim" class="space-y-6 block">
+            <!-- Dynamic Synergy & Conflict Notification Panel -->
+            <div id="synergy-alert-container" class="bg-amber-50 border border-amber-200 p-4 rounded-xl hidden">
+                <div class="flex items-start gap-2.5">
+                    <span class="text-amber-600 text-base">⚠️</span>
+                    <div>
+                        <h3 id="ui-alert-title" class="text-xs font-bold text-amber-800">Synergy & Conflict Detection Alert</h3>
+                        <div id="synergy-list" class="text-xs text-amber-700 mt-1 space-y-1">
+                            <!-- JS will inject conflict reports here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactive Weekly Schedule Map -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-slate-800 text-white flex justify-between items-center">
+                    <h2 id="ui-board-title" class="text-xs font-bold tracking-wider uppercase">Weekly Timeline Board (Reset Criteria: Daily 00:00 UTC)</h2>
+                </div>
+                
+                <div class="overflow-x-auto w-full">
+                    <div class="min-w-[800px] bg-slate-950/5 p-4 space-y-2">
+                        <!-- Table Alignment Grid Header (Width w-64 optimized) -->
+                        <div class="flex items-stretch font-bold text-xs bg-slate-100 border border-slate-200 rounded-t-lg text-slate-700">
+                            <div id="ui-grid-header-label" class="w-64 p-3 shrink-0 border-r border-slate-200 bg-slate-200/50">Buffs & Skills / Configurations</div>
+                            <div class="grid grid-cols-7 gap-1 flex-1 p-1 text-center">
+                                <div id="day-header-0">Mon</div>
+                                <div id="day-header-1">Tue</div>
+                                <div id="day-header-2">Wed</div>
+                                <div id="day-header-3">Thu</div>
+                                <div id="day-header-4">Fri</div>
+                                <div id="day-header-5">Sat</div>
+                                <div id="day-header-6">Sun</div>
+                            </div>
+                        </div>
+
+                        <!-- Main Grid Rows container -->
+                        <div id="timeline-rows-container" class="space-y-2">
+                            <!-- JS will dynamically inject the aligned rows here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Trigger Preset / Reset Control (Simplified alternative to form) -->
+            <div class="flex justify-end">
+                <button id="btn-master-reset" onclick="triggerResetDefaultMaster()" class="text-xs text-slate-500 hover:text-red-600 bg-white border border-slate-200 rounded-lg px-4 py-2 hover:shadow-xs transition font-semibold">Reset to Default Parameters</button>
+            </div>
+        </main>
+
+        <!-- ==================== Tab 2: Tips & Guide ==================== -->
+        <section id="content-tips" class="space-y-6 hidden text-xs">
+            <!-- Part A: Dynamic System Rule Warnings & Analytics -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                <div>
+                    <h2 id="ui-tips-title-rules" class="text-sm font-bold text-slate-900">🔍 Real-Time Deployment Rules & Warnings</h2>
+                    <p id="ui-tips-subtitle-rules" class="text-[11px] text-slate-500 mt-0.5">Automated monitoring checks based on current active schedule mapping.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Rule 1: Multi-buff overlaps -->
+                    <div class="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span id="ui-tips-badge-conflict" class="font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px]">Conflict Check</span>
+                            <span id="doc-status-conflict" class="font-semibold px-2 py-0.5 rounded text-[10px]">Calculating...</span>
+                        </div>
+                        <h3 id="ui-tips-conflict-title" class="font-bold text-slate-800">Over-concentration of Active Buffs</h3>
+                        <p id="ui-tips-conflict-desc" class="text-slate-600 leading-relaxed text-[11px]">
+                            <strong>Condition:</strong> Triggers if <strong>3 or more</strong> non-permanent (under 7 days) buffs/skills overlap on any day. 
+                            Stagger short-term durations to prevent resource and speed-up choke-points.
+                        </p>
+                    </div>
+
+                    <!-- Rule 2: Research alignment -->
+                    <div class="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span id="ui-tips-badge-synergy" class="font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px]">Synergy Check</span>
+                            <span id="doc-status-synergy" class="font-semibold px-2 py-0.5 rounded text-[10px]">Calculating...</span>
+                        </div>
+                        <h3 id="ui-tips-synergy-title" class="font-bold text-slate-800">Tuesday Research Optimization</h3>
+                        <p id="ui-tips-synergy-desc" class="text-slate-600 leading-relaxed text-[11px]">
+                            <strong>Condition:</strong> Triggers when the <strong>"Age of Science"</strong> variable buff is placed on <strong>Tuesday (UTC)</strong>. Matches perfectly with the server's weekly Research Day.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Part B: Official Buffs & Skills Detailed Technical Directory -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                <div>
+                    <h2 id="ui-tips-title-dir" class="text-sm font-bold text-slate-900">💡 Official Buffs & Skills Technical Details</h2>
+                    <p id="ui-tips-subtitle-dir" class="text-[11px] text-slate-500 mt-0.5">Reference sheets including costs, cooldown parameters, and complete functional details.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="tips-buff-directory">
+                    <!-- JS will dynamically inject the detailed reference cards here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== Tab 3: Share & Export ==================== -->
+        <section id="content-share" class="space-y-6 hidden text-xs">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 max-w-2xl mx-auto">
+                <h3 id="ui-share-title" class="text-sm font-bold text-slate-900 mb-3">🔗 Share Configuration & Optimization State</h3>
+                <p id="ui-share-desc" class="text-slate-500 mb-4 leading-relaxed">
+                    Instantly package all schedules and modified master configurations into a Base64-encrypted web link parameter. You can copy the link below and distribute it directly in alliance portals, discord groups, or strategy docs.
+                </p>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label id="ui-share-lbl-url" class="block font-semibold text-slate-700 mb-1">Encrypted Web URL Link</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="share-url-input" readonly class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-[11px] font-mono select-all">
+                            <button id="btn-share-copy" onclick="copyShareURL()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 rounded-lg shadow-sm transition shrink-0">Copy URL</button>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                        <h4 id="ui-share-sub-embed" class="font-bold text-slate-700 mb-1">💡 Embed in Strategy Sites (Google Sites)</h4>
+                        <p id="ui-share-embed-desc" class="text-slate-500 text-[11px] leading-relaxed">
+                            Under the Google Sites dashboard, click "Insert" &gt; "Embed URL", and paste the generated link. It allows the alliance portal to offer interactive, responsive scheduling widgets.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Application Script Block -->
+    <script>
+        // --- Multi-language Localization Dictionary ---
+        const I18N = {
+            en: {
+                title: "POK, AS, and Buff Schedule Map",
+                subtitle: "Web Simulator (LocalStorage / URL Parameter Sharing / UTC Standard)",
+                viewMode: "View Mode:",
+                timelineTab: "🕐 Timeline Map",
+                tipsTab: "💡 Tips & Guide",
+                shareTab: "📋 Share & Export",
+                synergyAlert: "Synergy & Conflict Detection Alert",
+                boardTitle: "Weekly Timeline Board (Reset Criteria: Daily 00:00 UTC)",
+                gridHeaderLabel: "Buffs & Skills / Configurations",
+                days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                active: "Active",
+                daySingular: "Day",
+                dayPlural: "Days",
+                ignition: "Ignition",
+                conflictBadge: "Conflict Check",
+                synergyBadge: "Synergy Check",
+                rulesTitle: "🔍 Real-Time Deployment Rules & Warnings",
+                rulesSubtitle: "Automated monitoring checks based on current active schedule mapping.",
+                conflictTitle: "Over-concentration of Active Buffs",
+                conflictDesc: "<strong>Condition:</strong> Triggers if <strong>3 or more</strong> non-permanent (under 7 days) buffs/skills overlap on any day. Stagger short-term durations to prevent resource and speed-up choke-points.",
+                scienceTitle: "Tuesday Research Optimization",
+                scienceDesc: "<strong>Condition:</strong> Triggers when the <strong>\"Age of Science\"</strong> variable buff is placed on <strong>Tuesday (UTC)</strong>. Matches perfectly with the server's weekly Research Day.",
+                tipsDirTitle: "💡 Official Buffs & Skills Technical Details",
+                tipsDirSubtitle: "Reference sheets including costs, cooldown parameters, and complete functional details.",
+                masterResetBtn: "Reset to Default Parameters",
+                shareHeading: "🔗 Share Configuration & Optimization State",
+                shareExplanation: "Instantly package all schedules and modified master configurations into a Base64-encrypted web link parameter. You can copy the link below and distribute it directly in alliance portals, discord groups, or strategy docs.",
+                shareUrlLabel: "Encrypted Web URL Link",
+                shareEmbedTitle: "💡 Embed in Strategy Sites (Google Sites)",
+                shareEmbedDesc: "Under the Google Sites dashboard, click \"Insert\" &gt; \"Embed URL\", and paste the generated link. It allows the alliance portal to offer interactive, responsive scheduling widgets.",
+                fixedServerEvent: "Fixed Server Event Schedule",
+                notScheduled: "- Not Scheduled -",
+                triggerOn: "Trigger on:",
+                toastLoaded: "Configuration state initialized via Shared Link.",
+                toastReset: "Configuration has been reset to default values.",
+                toastCopy: "Copied shareable link parameter to clipboard.",
+                toastCopyFail: "Copy command failed. Please copy the URL manually.",
+                toastCopyBlocked: "Copy command blocked. Please copy the URL manually.",
+                confirmResetTitle: "Reset Master Schedule Configuration?",
+                confirmResetDesc: "All custom elements, timings and custom descriptions will be deleted. Do you want to continue?"
+            },
+            ja: {
+                title: "POK/AS 作戦・バフスケジュール管理盤",
+                subtitle: "完全ローカルシミュレーター (LocalStorage / URLリンク共有 / UTC時間基準)",
+                viewMode: "表示モード:",
+                timelineTab: "🕐 タイムライン盤",
+                tipsTab: "💡 攻略Tips＆ガイド",
+                shareTab: "📋 作戦盤を共有",
+                synergyAlert: "シナジー検知・重複衝突警告アラート",
+                boardTitle: "週間作戦スケジュール盤 (更新基準: 毎日 00:00 UTC)",
+                gridHeaderLabel: "バフ・スキル / 配置曜日設定",
+                days: ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日", "日曜日"],
+                active: "有効期間",
+                daySingular: "日",
+                dayPlural: "日間",
+                ignition: "有効化",
+                conflictBadge: "重複確認",
+                synergyBadge: "シナジー確認",
+                rulesTitle: "🔍 スケジュール自動適合判定ルール",
+                rulesSubtitle: "現在の配置状態に基づいて、シナジー効果の発生や競合リスクをリアルタイム監視します。",
+                conflictTitle: "短期バフの重複過多",
+                conflictDesc: "<strong>判定条件:</strong> 同一曜日に持続7日未満の可変バフ・スキルが<strong>3つ以上</strong>重複した場合に警告。資源や各種加速アイテムの過度な集中消費を避けるため、点火日の分散配置を推奨します。",
+                scienceTitle: "火曜日の研究開発最適化",
+                scienceDesc: "<strong>判定条件:</strong> 科学技術研究イベントの火曜日（UTC）に、君主バフ<strong>「学びの土地 (Age of Science)」</strong>が発動しているか判定。基礎バフ効果（研究速度+20%）が乗算され、最高効率となります。",
+                tipsDirTitle: "💡 王国バフ・アクティブスキル公式詳細仕様",
+                tipsDirSubtitle: "王国内のスクリーンショットより厳密に抽出された、必要なコイン、クールダウン、及び補足制限です。",
+                masterResetBtn: "デフォルトマスタに完全リセット",
+                shareHeading: "🔗 配置状態・作戦の書き出し共有",
+                shareExplanation: "現在の配置スケジュールおよびカスタマイズされたマスタ設定をBase64データとして圧縮し、URLリンクを自動構築します。このURLを同盟メンバーに送るだけで、全く同じスケジュール配置を復元・共有可能です。",
+                shareUrlLabel: "共有用WebリンクURL",
+                shareEmbedTitle: "💡 ホームページ・ポータル（Google Sites）への埋め込み",
+                shareEmbedDesc: "Googleサイト等の編集画面で「挿入」＞「埋め込み」を選び、構築されたURLを貼り付けることで、同盟ポータル内にインタラクティブな作戦盤ウィジェットを展開可能です。",
+                fixedServerEvent: "固定サーバーイベント進行パターン",
+                notScheduled: "- 未配置 (未発動) -",
+                triggerOn: "点火曜日:",
+                toastLoaded: "共有パラメータから作戦スケジュールを復元しました。",
+                toastReset: "マスタおよび配置状態を初期化しました。",
+                toastCopy: "共有用URLをクリップボードにコピーしました！",
+                toastCopyFail: "コピーに失敗しました。URLを手動で全選択してコピーしてください。",
+                toastCopyBlocked: "コピーがブロックされました。手動でURLを選択してコピーしてください。",
+                confirmResetTitle: "マスタ・スケジュールを初期化しますか？",
+                confirmResetDesc: "登録したカスタム要素、各日程配置、個別説明テキストがすべて削除され初期化されます。よろしいですか？"
+            }
+        };
+
+        // --- Static Default Master Values (Sync with ground truth specifications) ---
+        const DEFAULT_EVENTS = [
+            { id: "ev-as", type: "event", name_en: "AS Event", name_ja: "AS イベント", color: "purple", days_en: ["Construction", "Research", "All-out war", "Troop enhancement", "Hero enhancement", "Defeat enemy troops", "-"], days_ja: ["建設", "科学研究", "全面戦争", "兵士強化", "英雄強化", "敵兵撃破", "-"] },
+            { id: "ev-pok", type: "event", name_en: "POK Event", name_ja: "POK イベント", color: "purple", days_en: ["RSS", "-", "Research/Construction", "No buff", "Troop enhancement", "Summary (80% return)", "-"], days_ja: ["資源収集", "-", "研究/建設", "バフなし", "兵士強化", "清算 (80%返還)", "-"] }
+        ];
+
+        const DEFAULT_BUFFS = [
+            { 
+                id: "bf-bb", 
+                type: "buff", 
+                category: "construction_research", 
+                name_en: "Building Boom", 
+                name_ja: "発展の時期",
+                durationDays: 1, 
+                color: "emerald", 
+                desc_en: "Construction speed +20%.",
+                desc_ja: "建設スピード +20%",
+                coins_en: "3,000",
+                coins_ja: "3,000",
+                cooldown_en: "168h (7d)",
+                cooldown_ja: "168時間 (7日間)",
+                fullDesc_en: "Increases construction speed by 20% for all Lords in the Kingdom. Lasts for 1440 minutes.",
+                fullDesc_ja: "王国内すべての君主の建設スピードを20%速めます。1440分間継続。"
+            },
+            { 
+                id: "bf-as", 
+                type: "buff", 
+                category: "construction_research", 
+                name_en: "Age of Science", 
+                name_ja: "学びの土地",
+                durationDays: 1, 
+                color: "emerald", 
+                desc_en: "Research speed +20%.",
+                desc_ja: "研究スピード +20%",
+                coins_en: "3,000",
+                coins_ja: "3,000",
+                cooldown_en: "168h (7d)",
+                cooldown_ja: "168時間 (7日間)",
+                fullDesc_en: "Increases research speed by 20% for all Lords in the Kingdom. Lasts for 1440 minutes.",
+                fullDesc_ja: "王国内のすべての君主の研究スピードを20%速めます。1440分間継続。"
+            },
+            { 
+                id: "bf-rt", 
+                type: "buff", 
+                category: "troop_increase", 
+                name_en: "Rapid Training", 
+                name_ja: "特急特訓",
+                durationDays: 3, 
+                color: "sky", 
+                desc_en: "Accelerates training based on Crown Battle losses.",
+                desc_ja: "王冠戦での損失パワー分を補填加速",
+                coins_en: "10,000",
+                coins_ja: "10,000",
+                cooldown_en: "336h (14d)",
+                cooldown_ja: "336時間 (14日間)",
+                fullDesc_en: "Increases the training speed for troops up to the same total Troop Power that was lost during the most recent Crown battle (troops that are currently being trained are unaffected). The effect lasts for 72 hours.",
+                fullDesc_ja: "部隊の特訓速度が上がります。特訓中の兵士は影響を受けません。直近の「王冠の戦い」で失った部隊パワーの合計と同じ値になるまで有効。持続時間は72時間です。"
+            },
+            { 
+                id: "bf-rd", 
+                type: "buff", 
+                category: "troop_increase", 
+                name_en: "Recruitment Drive", 
+                name_ja: "徴兵の推進",
+                durationDays: 2, 
+                color: "sky", 
+                desc_en: "Troop training costs -30%.",
+                desc_ja: "部隊訓練コスト -30%",
+                coins_en: "5,000",
+                coins_ja: "5,000",
+                cooldown_en: "168h (7d)",
+                cooldown_ja: "168時間 (7日間)",
+                fullDesc_en: "Reduces training costs by 30% for troops with a set amount of power (based on Stronghold level) for all Lords in the Kingdom. Lasts for 2880 minutes.",
+                fullDesc_ja: "一定のパワー（君主の野営地レベルに基づく）を持つ部隊すべての特訓コストを30%減少させます。王国内のすべての君主に適用され、2880分間継続。"
+            },
+            { 
+                id: "bf-wd", 
+                type: "buff", 
+                category: "troop_increase", 
+                name_en: "Wartime Draft", 
+                name_ja: "部隊の急増",
+                durationDays: 7, 
+                color: "sky", 
+                desc_en: "Training speed +30%.",
+                desc_ja: "全部隊の特訓スピード +30%",
+                coins_en: "5,000",
+                coins_ja: "5,000",
+                cooldown_en: "168h (7d)",
+                cooldown_ja: "168時間 (7日間)",
+                fullDesc_en: "Increases training speed by 30% for all Lords in the Kingdom. Lasts for 10080 minutes.",
+                fullDesc_ja: "王国内のすべての君主の特訓スピードを30%速めます。10080分間継続。"
+            },
+            { 
+                id: "bf-bk", 
+                type: "buff", 
+                category: "others", 
+                name_en: "Bountiful Kingdom", 
+                name_ja: "潤沢な王国",
+                durationDays: 1, 
+                color: "amber", 
+                desc_en: "Gathering speed +20%.",
+                desc_ja: "資源の採取スピード +20%",
+                coins_en: "3,000",
+                coins_ja: "3,000",
+                cooldown_en: "168h (7d)",
+                cooldown_ja: "168時間 (7日間)",
+                fullDesc_en: "Increases resource gathering speed by 20% for all Lords in the Kingdom. Lasts for 1440 minutes.",
+                fullDesc_ja: "王国内すべての君主の資源収集スピードを20%速めます。1440分間継続。"
+            },
+            { 
+                id: "bf-fe", 
+                type: "buff", 
+                category: "others", 
+                name_en: "Flourishing Economy", 
+                name_ja: "繁栄の土地",
+                durationDays: 7, 
+                color: "amber", 
+                desc_en: "+5% Gold top up bonus.",
+                desc_ja: "課金ゴールド獲得時に +5% ボーナス",
+                coins_en: "10,000",
+                coins_ja: "10,000",
+                cooldown_en: "168h (7d)",
+                cooldown_ja: "168時間 (7日間)",
+                fullDesc_en: "All Lords in the Kingdom who top up Gold will receive an extra 5% Gold. Lasts for 10080 minutes.",
+                fullDesc_ja: "ゴールドを購入で獲得した王国内すべての君主は、追加で5%のゴールドを獲得できます。10080分間継続。"
+            },
+            { 
+                id: "sk-gr", 
+                type: "skill", 
+                category: "others", 
+                name_en: "Guided Recovery", 
+                name_ja: "導きの回復",
+                durationDays: 1, 
+                color: "amber", 
+                desc_en: "Hospital healing costs -30%.",
+                desc_ja: "街の病院における治療コスト -30%",
+                coins_en: "3,000",
+                coins_ja: "3,000",
+                cooldown_en: "168h (7d)",
+                cooldown_ja: "168時間 (7日間)",
+                fullDesc_en: "Reduces the costs of healing troops in Estate Hospitals by 30% for all Lords in the Kingdom. Lasts for 1440 minutes.",
+                fullDesc_ja: "王国内のすべての君主の「街の病院」における部隊の回復コストを30%減少させます。1440分間継続。"
+            }
+        ];
+
+        const DEFAULT_PLACEMENTS = {
+            "bf-bb": 0, // Scheduled on Monday
+            "bf-as": 1, // Scheduled on Tuesday
+            "bf-bk": 0, // Scheduled on Monday
+            "bf-rt": 2, // Scheduled on Wednesday
+            "bf-rd": 3, // Scheduled on Thursday
+            "bf-wd": 0, // Scheduled on Monday
+            "bf-fe": 0, // Scheduled on Monday
+            "sk-gr": "none" // Disabled by default
+        };
+
+        let state = {
+            events: [],
+            buffs: [],
+            placements: {},
+            lang: "en" // Selected localization
+        };
+
+        // --- Core Application Initialize ---
+        function initApp() {
+            loadData();
+            applyLanguageUI();
+            renderAll();
+            updateShareURL();
+        }
+
+        // Set state localization parameter
+        function setLanguage(langCode) {
+            state.lang = langCode;
+            try {
+                localStorage.setItem('pok_v2_lang', langCode);
+            } catch(e) {}
+            applyLanguageUI();
+            renderAll();
+            updateShareURL();
+            showToast(state.lang === 'ja' ? "表示言語を「日本語」に切り替えました。" : "Language switched to English.");
+        }
+
+        // Apply localization definitions directly to DOM labels
+        function applyLanguageUI() {
+            const t = I18N[state.lang];
+
+            // Toggle language button highlighted states
+            document.getElementById('btn-lang-en').className = state.lang === 'en' ? "px-2 py-1 rounded-md bg-blue-600 text-white font-semibold transition" : "px-2 py-1 rounded-md text-slate-600 hover:text-slate-900 transition";
+            document.getElementById('btn-lang-ja').className = state.lang === 'ja' ? "px-2 py-1 rounded-md bg-blue-600 text-white font-semibold transition" : "px-2 py-1 rounded-md text-slate-600 hover:text-slate-900 transition";
+
+            // Header Elements
+            document.getElementById('ui-title').innerText = t.title;
+            document.getElementById('ui-subtitle').innerText = t.subtitle;
+            document.getElementById('ui-view-label').innerText = t.viewMode;
+
+            // Navigation Tabs
+            document.getElementById('tab-sim').innerText = t.timelineTab;
+            document.getElementById('tab-tips').innerText = t.tipsTab;
+            document.getElementById('tab-share').innerText = t.shareTab;
+
+            // Timeline Map Grid Header Labels
+            document.getElementById('ui-alert-title').innerText = t.synergyAlert;
+            document.getElementById('ui-board-title').innerText = t.boardTitle;
+            document.getElementById('ui-grid-header-label').innerText = t.gridHeaderLabel;
+
+            for (let i = 0; i < 7; i++) {
+                document.getElementById(`day-header-${i}`).innerText = t.days[i];
+            }
+
+            // Rules & Warnings Documentation Tab Panel
+            document.getElementById('ui-tips-title-rules').innerText = t.rulesTitle;
+            document.getElementById('ui-tips-subtitle-rules').innerText = t.rulesSubtitle;
+            document.getElementById('ui-tips-badge-conflict').innerText = t.conflictBadge;
+            document.getElementById('ui-tips-conflict-title').innerText = t.conflictTitle;
+            document.getElementById('ui-tips-conflict-desc').innerHTML = t.conflictDesc;
+
+            document.getElementById('ui-tips-badge-synergy').innerText = t.synergyBadge;
+            document.getElementById('ui-tips-synergy-title').innerText = t.scienceTitle;
+            document.getElementById('ui-tips-synergy-desc').innerHTML = t.scienceDesc;
+            document.getElementById('ui-tips-title-dir').innerText = t.tipsDirTitle;
+            document.getElementById('ui-tips-subtitle-dir').innerText = t.tipsDirSubtitle;
+
+            // Reset Button
+            document.getElementById('btn-master-reset').innerText = t.masterResetBtn;
+
+            // Sharing Panel
+            document.getElementById('ui-share-title').innerText = t.shareHeading;
+            document.getElementById('ui-share-desc').innerText = t.shareExplanation;
+            document.getElementById('ui-share-lbl-url').innerText = t.shareUrlLabel;
+            document.getElementById('btn-share-copy').innerText = t.shareUrlLabel;
+            document.getElementById('ui-share-sub-embed').innerText = t.shareEmbedTitle;
+            document.getElementById('ui-share-embed-desc').innerText = t.shareEmbedDesc;
+        }
+
+        // Load configuration datasets with LocalStorage safe boundary guards
+        function loadData() {
+            // Restore chosen localization state with fallback try-catch bounds
+            try {
+                const savedLang = localStorage.getItem('pok_v2_lang');
+                if (savedLang) {
+                    state.lang = savedLang;
+                }
+            } catch(e) {}
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedData = urlParams.get('p');
+
+            if (encodedData) {
+                try {
+                    const decoded = JSON.parse(
+                        navigator.userAgent.includes("Safari") && !navigator.userAgent.includes("Chrome") 
+                        ? decodeURIComponent(escape(atob(encodedData))) 
+                        : atob(encodedData)
+                    );
+                    state.events = decoded.events || DEFAULT_EVENTS;
+                    state.buffs = decoded.buffs || DEFAULT_BUFFS;
+                    state.placements = decoded.placements || DEFAULT_PLACEMENTS;
+                    state.lang = decoded.lang || state.lang;
+                    return;
+                } catch (e) {
+                    console.error("Link state decoding exception thrown", e);
+                }
+            }
+
+            try {
+                const localEvents = localStorage.getItem('pok_v2_events');
+                const localBuffs = localStorage.getItem('pok_v2_buffs');
+                const localPlacements = localStorage.getItem('pok_v2_placements');
+
+                state.events = localEvents ? JSON.parse(localEvents) : [...DEFAULT_EVENTS];
+                state.buffs = localBuffs ? JSON.parse(localBuffs) : [...DEFAULT_BUFFS];
+                state.placements = localPlacements ? JSON.parse(localPlacements) : {...DEFAULT_PLACEMENTS};
+            } catch(e) {
+                // If LocalStorage access is fully blocked by tracking prevention (ITP), fallback completely to memory defaults
+                state.events = [...DEFAULT_EVENTS];
+                state.buffs = [...DEFAULT_BUFFS];
+                state.placements = {...DEFAULT_PLACEMENTS};
+            }
+        }
+
+        // Save local dataset parameters safely
+        function saveData() {
+            try {
+                localStorage.setItem('pok_v2_events', JSON.stringify(state.events));
+                localStorage.setItem('pok_v2_buffs', JSON.stringify(state.buffs));
+                localStorage.setItem('pok_v2_placements', JSON.stringify(state.placements));
+            } catch(e) {
+                // Ignore errors gracefully if ITP block prevents storage
+            }
+            updateShareURL();
+        }
+
+        // Trigger safe default state restore through custom modal confirmation
+        function triggerResetDefaultMaster() {
+            const t = I18N[state.lang];
+            showConfirm(
+                t.confirmResetTitle, 
+                t.confirmResetDesc, 
+                () => {
+                    try {
+                        localStorage.clear();
+                    } catch(e) {}
+                    window.location.search = ""; 
+                    loadData();
+                    renderAll();
+                    showToast(t.toastReset);
+                }
+            );
+        }
+
+        // Run full rendering and calculation cycle
+        function renderAll() {
+            renderTimeline();
+            renderTipsDirectory();
+            checkSynergy();
+        }
+
+        // Render aligned schedules and inline parameters
+        function renderTimeline() {
+            const container = document.getElementById('timeline-rows-container');
+            container.innerHTML = '';
+            const t = I18N[state.lang];
+
+            // 1. Draw Fixed Event block sets (Width w-64 optimized)
+            state.events.forEach(ev => {
+                const row = document.createElement('div');
+                row.className = "flex items-stretch bg-white border border-slate-200 rounded-lg overflow-hidden min-h-[4.5rem]";
+                
+                const evName = state.lang === 'ja' ? (ev.name_ja || ev.name) : (ev.name_en || ev.name);
+                const evDays = state.lang === 'ja' ? (ev.days_ja || ev.days) : (ev.days_en || ev.days);
+
+                let html = `
+                    <div class="w-64 p-3 shrink-0 bg-purple-900 text-white flex flex-col justify-center border-r border-slate-200">
+                        <div class="font-bold text-xs">${evName}</div>
+                        <div class="text-[9px] opacity-75 mt-0.5">${t.fixedServerEvent}</div>
+                    </div>
+                    <div class="grid grid-cols-7 gap-1 flex-1 p-1 bg-slate-50/50">`;
+                
+                evDays.forEach(dayText => {
+                    const hasContent = dayText !== "-";
+                    const cellBg = hasContent ? "bg-purple-50 border-purple-200 text-purple-900 font-medium" : "bg-white border-slate-200 text-slate-400";
+                    html += `
+                        <div class="border rounded flex items-center justify-center p-1 text-center text-[10px] leading-tight ${cellBg}">
+                            ${dayText}
+                        </div>`;
+                });
+                
+                html += `</div>`;
+                row.innerHTML = html;
+                container.appendChild(row);
+            });
+
+            // 2. Draw Variable Buff block sets with aligned inline dropdown configurations (Width w-64 optimized)
+            state.buffs.forEach(buff => {
+                const placement = state.placements[buff.id] !== undefined ? state.placements[buff.id] : "none";
+                const row = document.createElement('div');
+                row.className = "flex items-stretch bg-white border border-slate-200 rounded-lg overflow-hidden min-h-[4.5rem]";
+                
+                const cMap = {
+                    emerald: "border-emerald-200 bg-emerald-50 text-emerald-950",
+                    sky: "border-sky-200 bg-sky-50 text-sky-950",
+                    amber: "border-amber-200 bg-amber-50 text-amber-950"
+                };
+                const leftTheme = cMap[buff.color] || cMap.emerald;
+
+                const buffName = state.lang === 'ja' ? (buff.name_ja || buff.name) : (buff.name_en || buff.name);
+                const buffDesc = state.lang === 'ja' ? (buff.desc_ja || buff.desc) : (buff.desc_en || buff.desc);
+
+                // Create inline selection triggers with localization support
+                let selectHtml = `
+                    <select onchange="updatePlacement('${buff.id}', this.value)" class="mt-2 block w-full p-1.5 border border-slate-300 rounded bg-white text-[11px] font-medium text-slate-800 shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <option value="none" ${placement === 'none' ? 'selected' : ''}>${t.notScheduled}</option>`;
+                I18N[state.lang].days.forEach((day, idx) => {
+                    selectHtml += `<option value="${idx}" ${placement !== 'none' && parseInt(placement) === idx ? 'selected' : ''}>${t.triggerOn} ${day}</option>`;
+                });
+                selectHtml += `</select>`;
+
+                let html = `
+                    <div class="w-64 p-3 shrink-0 flex flex-col justify-between border-r border-slate-200 ${leftTheme}">
+                        <div>
+                            <div class="flex items-center justify-between font-bold text-xs">
+                                <span class="truncate pr-1">${buffName}</span>
+                                <span class="text-[9px] px-1.5 py-0.5 bg-white/60 rounded border border-black/5 font-normal tracking-wide shrink-0">${buff.durationDays}${buff.durationDays > 1 ? t.dayPlural : t.daySingular}</span>
+                            </div>
+                            <p class="text-[10px] leading-tight opacity-85 mt-1 font-normal line-clamp-2">${buffDesc || ''}</p>
+                        </div>
+                        ${selectHtml}
+                    </div>
+                    <div class="grid grid-cols-7 gap-1 flex-1 p-1 bg-slate-50/50">`;
+
+                // Calculate duration schedules spanning across boundaries
+                for (let d = 0; d < 7; d++) {
+                    let isActive = false;
+                    let displayDayIndex = 0;
+                    if (placement !== 'none') {
+                        const start = parseInt(placement);
+                        for (let i = 0; i < buff.durationDays; i++) {
+                            if ((start + i) % 7 === d) {
+                                isActive = true;
+                                displayDayIndex = i + 1;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (isActive) {
+                        if (displayDayIndex === 1) {
+                            // Ignition Day (Day 1) styled with Red text and subtle Red background to emphasize triggering point
+                            // Top border shows category color group to maintain structural identity
+                            const borderMap = {
+                                emerald: "border-t-4 border-t-emerald-500",
+                                sky: "border-t-4 border-t-sky-500",
+                                amber: "border-t-4 border-t-amber-500"
+                            };
+                            const borderCls = borderMap[buff.color] || "border-t-4 border-t-emerald-500";
+
+                            html += `
+                                <div class="border border-red-300 rounded bg-red-50 text-red-600 font-bold flex flex-col items-center justify-center p-1 text-center text-[10px] leading-tight ${borderCls} shadow-sm">
+                                    <span class="uppercase tracking-wider text-[8px] opacity-90 text-red-700">${t.ignition}</span>
+                                    <span class="text-[9px] font-mono opacity-80 mt-0.5">D-1</span>
+                                </div>`;
+                        } else {
+                            // Sustained Duration Days (Day 2+) styled with category thematic backgrounds
+                            const cellMap = {
+                                emerald: "bg-emerald-600 text-white font-semibold border-emerald-700 shadow-sm",
+                                sky: "bg-sky-600 text-white font-semibold border-sky-700 shadow-sm",
+                                amber: "bg-amber-600 text-white font-semibold border-amber-700 shadow-sm"
+                            };
+                            const activeCls = cellMap[buff.color] || cellMap.emerald;
+                            html += `
+                                <div class="border rounded flex flex-col items-center justify-center p-1 text-center text-[10px] leading-tight ${activeCls}">
+                                    <span class="uppercase tracking-wider text-[8px] opacity-90">${t.active}</span>
+                                    <span class="text-[9px] font-mono opacity-75 mt-0.5">D-${displayDayIndex}</span>
+                                </div>`;
+                        }
+                    } else {
+                        html += `
+                            <div class="border border-slate-200 rounded bg-white text-slate-300 flex items-center justify-center p-1 text-[11px] font-mono">
+                                -
+                            </div>`;
+                    }
+                }
+
+                html += `</div>`;
+                row.innerHTML = html;
+                container.appendChild(row);
+            });
+        }
+
+        // Render official detailed guides in the Tips tab dynamically with selected localization
+        function renderTipsDirectory() {
+            const dir = document.getElementById('tips-buff-directory');
+            if (!dir) return;
+            dir.innerHTML = '';
+
+            state.buffs.forEach(buff => {
+                const card = document.createElement('div');
+                card.className = "border border-slate-200 rounded-lg p-3 bg-slate-50 flex flex-col justify-between space-y-2.5";
+                
+                const cMap = {
+                    emerald: "border-emerald-300 bg-emerald-50 text-emerald-950",
+                    sky: "border-sky-300 bg-sky-50 text-sky-950",
+                    amber: "border-amber-300 bg-amber-50 text-amber-950"
+                };
+                const tagCls = cMap[buff.color] || cMap.emerald;
+
+                const buffName = state.lang === 'ja' ? (buff.name_ja || buff.name) : (buff.name_en || buff.name);
+                const buffFullDesc = state.lang === 'ja' ? (buff.fullDesc_ja || buff.fullDesc || buff.desc_ja) : (buff.fullDesc_en || buff.fullDesc || buff.desc_en);
+                const buffCoins = state.lang === 'ja' ? (buff.coins_ja || buff.coins) : (buff.coins_en || buff.coins);
+                const buffCooldown = state.lang === 'ja' ? (buff.cooldown_ja || buff.cooldown) : (buff.cooldown_en || buff.cooldown);
+
+                card.innerHTML = `
+                    <div class="space-y-1.5">
+                        <div class="flex items-center justify-between">
+                            <h4 class="font-bold text-slate-900">${buffName}</h4>
+                            <span class="text-[9px] px-1.5 py-0.5 rounded border ${tagCls} uppercase tracking-wider font-semibold">${buff.type || 'buff'}</span>
+                        </div>
+                        <p class="text-slate-600 leading-relaxed text-[11px]">${buffFullDesc}</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 text-[10px] text-slate-500 font-mono">
+                        <div>🪙 Coins: <strong class="text-slate-700">${buffCoins || '3,000'}</strong></div>
+                        <div>⏱️ Cooldown: <strong class="text-slate-700">${buffCooldown || '168h'}</strong></div>
+                    </div>`;
+                dir.appendChild(card);
+            });
+        }
+
+        // Change scheduler placements
+        function updatePlacement(buffId, value) {
+            state.placements[buffId] = value === "none" ? "none" : parseInt(value);
+            saveData();
+            renderTimeline();
+            checkSynergy();
+        }
+
+        // Verify scheduled synergy sets and alert overlaps
+        function checkSynergy() {
+            const alertContainer = document.getElementById('synergy-alert-container');
+            const listContainer = document.getElementById('synergy-list');
+            listContainer.innerHTML = '';
+
+            let hasAlert = false;
+            let dailyCounts = new Array(7).fill(0);
+
+            // Exclude constant 7-day buffs from overlap conflict checks to avoid noise
+            state.buffs.forEach(buff => {
+                const p = state.placements[buff.id];
+                if (p !== undefined && p !== "none" && buff.durationDays < 7) {
+                    const start = parseInt(p);
+                    for (let i = 0; i < buff.durationDays; i++) {
+                        dailyCounts[(start + i) % 7]++;
+                    }
+                }
+            });
+
+            let conflictDays = [];
+            dailyCounts.forEach((count, idx) => {
+                if (count >= 3) {
+                    conflictDays.push(I18N[state.lang].days[idx]);
+                }
+            });
+
+            // Status Badge Variables for the Alert Guide UI
+            let isConflictTriggered = conflictDays.length > 0;
+            let isScienceMatched = false;
+
+            if (isConflictTriggered) {
+                hasAlert = true;
+                const div = document.createElement('div');
+                if (state.lang === 'ja') {
+                    div.innerHTML = `➔ <strong>重複警告:</strong> 同一曜日に 3 つ以上の可変バフ・スキルが重複配置されています 【${conflictDays.join(', ')}】。発動日を調整してください。`;
+                } else {
+                    div.innerHTML = `➔ <strong>Conflict Warning:</strong> 3 or more concurrent variable buffs or skills are scheduled simultaneously on 【${conflictDays.join(', ')}】. Verify stacking boundaries.`;
+                }
+                listContainer.appendChild(div);
+            }
+
+            // Target Scenario Synergy Evaluation: Age of Science active on Tuesday (Research Event)
+            const scienceBuff = state.buffs.find(b => b.id === 'bf-as');
+            if (scienceBuff) {
+                const p = state.placements[scienceBuff.id];
+                if (p !== undefined && parseInt(p) === 1) {
+                    hasAlert = true;
+                    isScienceMatched = true;
+                    const div = document.createElement('div');
+                    div.className = "text-emerald-700 font-semibold";
+                    if (state.lang === 'ja') {
+                        div.innerHTML = `➔ 🎉 <strong>最適化成功:</strong> 「学びの土地 (Age of Science)」が火曜日の「科学研究イベント」と完璧に同期されています。`;
+                    } else {
+                        div.innerHTML = `➔ 🎉 <strong>Target Synergy Reached:</strong> "Age of Science" has been matched to Tuesday's "Research Event".`;
+                    }
+                    listContainer.appendChild(div);
+                }
+            }
+
+            if (hasAlert) alertContainer.classList.remove('hidden');
+            else alertContainer.classList.add('hidden');
+
+            // Synchronize status badges on Tab 2 (Tips) dynamically
+            updateAlertGuideStatus(isConflictTriggered, isScienceMatched, conflictDays);
+        }
+
+        // Dynamically update the status indicator badges on the documentation tab
+        function updateAlertGuideStatus(isConflict, isSynergy, conflictDays) {
+            const statusConflict = document.getElementById('doc-status-conflict');
+            const statusSynergy = document.getElementById('doc-status-synergy');
+
+            if (statusConflict && statusSynergy) {
+                if (isConflict) {
+                    statusConflict.className = "text-[10px] font-semibold px-2 py-0.5 rounded bg-red-100 text-red-800 animate-pulse";
+                    statusConflict.innerText = state.lang === 'ja' ? `警告発生中 (${conflictDays.join(', ')})` : `Active Triggered (${conflictDays.join(', ')})`;
+                } else {
+                    statusConflict.className = "text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600";
+                    statusConflict.innerText = state.lang === 'ja' ? "良好 (重複なし)" : "Satisfied (No Conflict)";
+                }
+
+                if (isSynergy) {
+                    statusSynergy.className = "text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800";
+                    statusSynergy.innerText = state.lang === 'ja' ? "同期完了 (100%合致)" : "Achieved (100% Match)";
+                } else {
+                    statusSynergy.className = "text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600";
+                    statusSynergy.innerText = state.lang === 'ja' ? "未同期" : "Not Achieved";
+                }
+            }
+        }
+
+        // --- Custom Confirmation Modal Helper ---
+        function showConfirm(title, desc, onConfirm) {
+            const modal = document.getElementById('confirm-modal');
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-desc').innerText = desc;
+            
+            const btnConfirm = document.getElementById('modal-confirm');
+            const btnCancel = document.getElementById('modal-cancel');
+            
+            // Clean listeners
+            const newConfirm = btnConfirm.cloneNode(true);
+            btnConfirm.parentNode.replaceChild(newConfirm, btnConfirm);
+            
+            const newCancel = btnCancel.cloneNode(true);
+            btnCancel.parentNode.replaceChild(newCancel, btnCancel);
+            
+            newConfirm.addEventListener('click', () => {
+                modal.classList.add('hidden');
+                onConfirm();
+            });
+            
+            newCancel.addEventListener('click', () => {
+                modal.classList.add('hidden');
+            });
+            
+            modal.classList.remove('hidden');
+        }
+
+        function switchTab(tabName) {
+            const tabs = {
+                sim: { btn: 'tab-sim', content: 'content-sim' },
+                tips: { btn: 'tab-tips', content: 'content-tips' },
+                share: { btn: 'tab-share', content: 'content-share' }
+            };
+
+            for (let key in tabs) {
+                const b = document.getElementById(tabs[key].btn);
+                const c = document.getElementById(tabs[key].content);
+                if (key === tabName) {
+                    b.className = "border-b-2 border-blue-600 py-2 px-4 text-blue-600 font-bold transition";
+                    c.className = "space-y-6 block";
+                } else {
+                    b.className = "border-b-2 border-transparent py-2 px-4 text-slate-500 hover:text-slate-700 transition";
+                    c.className = "hidden";
+                }
+            }
+            if (tabName === 'share') updateShareURL();
+        }
+
+        function setViewMode(mode) {
+            const container = document.getElementById('app-container');
+            document.getElementById('btn-mode-auto').className = "px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition";
+            document.getElementById('btn-mode-pc').className = "px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition";
+            document.getElementById('btn-mode-mobile').className = "px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition";
+
+            if (mode === 'auto') {
+                document.getElementById('btn-mode-auto').className = "px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-sm font-semibold transition";
+                container.className = "max-w-7xl mx-auto p-4 md:p-6 transition-all duration-300";
+            } else if (mode === 'pc') {
+                document.getElementById('btn-mode-pc').className = "px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-sm font-semibold transition";
+                container.className = "max-w-7xl mx-auto p-4 md:p-6 transition-all duration-300";
+            } else if (mode === 'mobile') {
+                document.getElementById('btn-mode-mobile').className = "px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-sm font-semibold transition";
+                container.className = "mode-mobile-view transition-all duration-300";
+            }
+        }
+
+        // --- Share & Toast Utilities ---
+        function updateShareURL() {
+            try {
+                // Ensure state records current selected language as well
+                const jsonStr = JSON.stringify(state);
+                const b64 = btoa(unescape(encodeURIComponent(jsonStr)));
+                document.getElementById('share-url-input').value = window.location.origin + window.location.pathname + "?p=" + b64;
+            } catch (e) {
+                console.error("Unable to update share URL configuration", e);
+            }
+        }
+
+        function copyShareURL() {
+            const input = document.getElementById('share-url-input');
+            input.select();
+            input.setSelectionRange(0, 99999); // Mobile optimization
+
+            try {
+                navigator.clipboard.writeText(input.value).then(() => {
+                    showToast(I18N[state.lang].toastCopy);
+                }).catch(() => {
+                    fallbackCopy(input.value);
+                });
+            } catch (err) {
+                fallbackCopy(input.value);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const t = I18N[state.lang];
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed"; 
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToast(t.toastCopy);
+                } else {
+                    showToast(t.toastCopyFail);
+                }
+            } catch (err) {
+                showToast(t.toastCopyBlocked);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = message;
+            toast.classList.remove('hidden');
+            toast.classList.add('flex');
+            toast.style.opacity = "1";
+            setTimeout(() => {
+                toast.style.opacity = "0";
+                setTimeout(() => {
+                    toast.classList.remove('flex');
+                    toast.classList.add('hidden');
+                }, 300);
+            }, 3000);
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
